@@ -1,1 +1,78 @@
+name: trade
 
+# Tidak ada jadwal di sini: dipicu cron-job.org (workflow_dispatch) tiap 5 menit, Senin-Jumat 12:00-21:00 UTC.
+# Kode sendiri yang memutuskan jendela sesi New York 08:00-16:00 (otomatis menyesuaikan musim).
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "run = normal | check = uji data+gambar | ai_test = uji data+gambar+AI | telegram_test = kirim foto contoh | report = kirim laporan ke bot alert | force = analisis di luar sesi (uji)"
+        type: choice
+        default: run
+        options:
+          - run
+          - check
+          - ai_test
+          - telegram_test
+          - report
+          - force
+
+concurrency:
+  group: trade
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src
+      TWELVE_DATA_KEY: ${{ secrets.TWELVE_DATA_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      ALERT_BOT_TOKEN: ${{ secrets.ALERT_BOT_TOKEN }}
+      ALERT_CHAT_ID: ${{ secrets.ALERT_CHAT_ID }}
+      MONGO_URL: ${{ secrets.MONGO_URL }}
+      DB_NAME: ${{ secrets.DB_NAME }}
+      GH_TOKEN_EXPIRY: ${{ secrets.GH_TOKEN_EXPIRY }}
+      PROMPT_TEXT: ${{ secrets.PROMPT_TEXT }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      GEMINI_FALLBACK_MODEL: ${{ vars.GEMINI_FALLBACK_MODEL }}
+      GROQ_MODEL: ${{ vars.GROQ_MODEL }}
+      MIN_CONFIDENCE: ${{ vars.MIN_CONFIDENCE }}
+      MAX_SIGNALS_DAY: ${{ vars.MAX_SIGNALS_DAY }}
+      SEND_RESULTS: ${{ vars.SEND_RESULTS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - name: Uji data dan gambar
+        if: ${{ inputs.mode == 'check' }}
+        run: python -m labgold --check
+      - name: Uji data, gambar, dan AI
+        if: ${{ inputs.mode == 'ai_test' }}
+        run: python -m labgold --ai-test
+      - name: Tes Telegram (foto contoh)
+        if: ${{ inputs.mode == 'telegram_test' }}
+        run: python -m labgold --telegram-test
+      - name: Laporan kalibrasi
+        if: ${{ inputs.mode == 'report' }}
+        run: python -m labgold --report
+      - name: Jalankan bot (paksa, uji)
+        if: ${{ inputs.mode == 'force' }}
+        run: python -m labgold --force
+      - name: Jalankan bot
+        if: ${{ inputs.mode == 'run' || inputs.mode == '' }}
+        run: python -m labgold
+      - name: Alert jika run gagal
+        if: ${{ failure() }}
+        run: python scripts/alert_fail.py
