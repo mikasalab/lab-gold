@@ -112,10 +112,17 @@ def _panel(ax, tf, df, levels, last_price):
     # ---- sumbu waktu (WIB) dan pemisah hari
     ts = v.ts.values
     days = [_wib(t, "%d %b") for t in ts]
+    unit = 0.6 * (show + RIGHT_PAD + 1) / 14.5         # lebar teks tanggal/harga swing (+-0,6 inci) dalam satuan candle
+    ups = [s["i"] - start for s in vis if s["kind"] == "H" and s["price"] >= ymax - rng * 0.10]
+    downs = [s["i"] - start for s in vis if s["kind"] == "L" and s["price"] <= ymin + rng * 0.10]
+    hit = lambda xs, x0: any(abs(x - (x0 + unit / 2)) <= unit for x in xs)
     for i in range(1, show):
         if days[i] != days[i - 1]:
             ax.axvline(i - 0.5, color="#bdbdbd", linewidth=0.9, linestyle="-.", zorder=1)
-            ax.text(i - 0.4, ymax - rng * 0.012, days[i], fontsize=8, color="#757575", va="top", ha="left")
+            x0 = i - 0.4
+            low = hit(ups, x0) and not hit(downs, x0)  # tanggal pindah ke bawah bila bertabrakan dengan harga swing high di atas
+            ax.text(x0, (ymin + rng * 0.012) if low else (ymax - rng * 0.012), days[i], fontsize=8, color="#757575",
+                    va="bottom" if low else "top", ha="left")
     ticks = [i for i, t in enumerate(ts) if int(_wib(t, "%H")) in TICK_HOURS[tf] and _wib(t, "%M") == "00"]
     if len(ticks) < 3:                                 # cadangan bila data tidak rata (mis. akhir pekan)
         ticks = list(range(0, show, max(1, show // 8)))
