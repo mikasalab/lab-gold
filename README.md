@@ -38,7 +38,8 @@ tests/                        uji unit dan end-to-end (tanpa internet)
 4. **cron-job.org**: buat pekerjaan (zona waktu **UTC**):
    - URL: `https://api.github.com/repos/<USERNAME>/lab-gold/actions/workflows/trade.yml/dispatches`, metode POST, body `{"ref":"main"}`
    - Header: `Authorization: Bearer <token fine-grained>`, `Accept: application/vnd.github+json`, `X-GitHub-Api-Version: 2022-11-28`
-   - Jadwal: hari Senin-Jumat, jam 12-20, menit `1,6,11,16,21,26,31,36,41,46,51,56`. "Test run" harus 204.
+   - Jadwal (zona waktu job: **UTC**). Crontab: `1-59/5 12-20 * * 1-5`. Bila editor memakai pilihan per kolom: menit `1,6,11,16,21,26,31,36,41,46,51,56`, jam `12` sampai `20`, hari Senin-Jumat, tanggal dan bulan semua. "Test run" harus 204.
+   - Cek: geser toggle riwayat ke *Job time zone*; run pertama Senin harus 12:01 UTC (19:01 WIB), selang tiap run 5 menit.
    - Jam UTC 12-21 = 19:00-04:00 WIB; kode memutuskan jendela NY 08:00-16:00 sehingga otomatis benar di musim dingin/panas.
 
 ## Mode workflow
@@ -77,7 +78,7 @@ cd tests && PYTHONPATH=../src python -m unittest test_all -v
 ## Batas layanan gratis (diperiksa 27 Nov 2026; bisa berubah)
 
 - Twelve Data Basic: 800 kredit/hari, 8/menit; bot memakai sekitar 40-60 kredit per hari berkat cache.
-- Gemini 3.5/3.1 Flash-Lite gratis: 500 request/hari, 15/menit; bot memakai sekitar 32 per hari.
+- Gemini 3.5/3.1 Flash-Lite gratis: batas harian dan per menit yang berlaku lihat di Google AI Studio (halaman rate limit); bot memakai sekitar 32 request per hari.
   Gemini 3.1 Flash-Lite dijadwalkan mati paling cepat 7 Mei 2027: ganti lewat `GEMINI_FALLBACK_MODEL`.
 - Groq gratis: 8.000 token/menit; satu gambar = 2.048 token (cukup untuk cadangan).
-- MongoDB Atlas M0: 512 MB. GitHub Actions: gratis tanpa batas untuk repo publik.
+- MongoDB Atlas M0: 512 MB. GitHub Actions: gratis untuk repo publik (runner standar).
