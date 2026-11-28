@@ -19,14 +19,13 @@ def make_rows(now_ts, seed=1, base=4030.0):
     m15 = [[int(t), float(o), float(h), float(l), float(c)] for t, o, h, l, c in zip(ts, open_, high, low, close)]
 
     def agg(k, size):
-        out = []
-        end = len(m15) - (len(m15) % k) if False else len(m15)
-        i = end
-        while i - k >= 0 and len(out) < size:
-            chunk = m15[i - k:i]
-            out.append([chunk[0][0], chunk[0][1], max(c[2] for c in chunk), min(c[3] for c in chunk), chunk[-1][4]])
-            i -= k
-        return out[::-1]
+        """Gabungkan M15 menjadi H1/H4 sejajar jam UTC (seperti data asli); bucket yang belum lengkap dibuang."""
+        span, buckets = 900 * k, {}
+        for c in m15:
+            buckets.setdefault(c[0] - c[0] % span, []).append(c)
+        out = [[b, ch[0][1], max(x[2] for x in ch), min(x[3] for x in ch), ch[-1][4]]
+               for b, ch in sorted(buckets.items()) if len(ch) == k]
+        return out[-size:]
     return {"M15": m15[-TF["M15"]["fetch"]:], "H1": agg(4, TF["H1"]["fetch"]), "H4": agg(16, TF["H4"]["fetch"])}
 
 
