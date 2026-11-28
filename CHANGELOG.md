@@ -11,6 +11,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/). Versi
 - Prompt AI: menjelaskan arti label `SwH/SwL`, `PDH/PDL`, `Asia/London H/L`.
 - Workflow: `actions/checkout@v6` dan `actions/setup-python@v6` (Node 24; menghilangkan peringatan deprecation Node 20).
 - Jadwal cron-job.org: tiap 5 menit, crontab UTC `1-59/5 12-20 * * 1-5`.
+- Data sintetis (`demo.py`): candle H1/H4 disejajarkan dengan jam UTC seperti data asli, sehingga foto contoh Telegram menampilkan sumbu waktu yang sama dengan data nyata.
 
 ## [0.1.0] - 2026-11-27
 
