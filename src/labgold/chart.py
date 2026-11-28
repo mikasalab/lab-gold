@@ -19,6 +19,8 @@ EMA_SPEC = {"M15": [("ema20", "EMA20", "#1f77b4"), ("ema50", "EMA50", "#ff7f0e")
             "H4": [("ema50", "EMA50", "#ff7f0e"), ("ema200", "EMA200", "#7b1fa2")]}
 GROUP_COLOR = {"hari": "#0b6e99", "sesi": "#8d6e00", "swing": "#555555", "bulat": "#9e9e9e"}
 RIGHT_PAD = 17          # ruang di kanan untuk label harga (jumlah candle)
+TICK_HOURS = {"M15": (0, 3, 6, 9, 12, 15, 18, 21), "H1": (0, 6, 12, 18), "H4": (7,)}   # jam WIB (H4 dibuka 07:00 WIB = 00:00 UTC)
+LEVEL_PRIO = {"hari": 0, "sesi": 0, "swing": 1, "bulat": 3}                              # prioritas label bila dua level saling berdekatan
 
 
 def _wib(ts, fmt):
@@ -68,9 +70,9 @@ def _panel(ax, tf, df, levels, last_price):
         up = s["kind"] == "H"
         ax.plot(xi, s["price"] + (rng * 0.012 if up else -rng * 0.012), marker="v" if up else "^",
                 color=DOWN if up else UP, markersize=6, zorder=6)
-        ax.text(xi, s["price"] + (rng * 0.026 if up else -rng * 0.026), f"{s['price']:.2f}", fontsize=7.5, ha="center",
+        ax.text(xi, s["price"] + (rng * 0.026 if up else -rng * 0.026), f"{s['price']:.2f}", fontsize=8.5, ha="center",
                 va="bottom" if up else "top", color="#333333", zorder=7)
-    labels = []
+    cand = []                                          # (harga, teks, warna, prioritas, x_mulai, gaya garis)
     for kind in ("H", "L"):
         keep = []
         for s in [s for s in sw if s["kind"] == kind][-4:]:
@@ -78,20 +80,23 @@ def _panel(ax, tf, df, levels, last_price):
             broken = len(after) and ((after.max() >= s["price"]) if kind == "H" else (after.min() <= s["price"]))
             if not broken and ymin <= s["price"] <= ymax:
                 keep.append(s)
-        for s in keep[-2:]:
-            ax.hlines(s["price"], max(0, s["i"] - start), show - 1 + RIGHT_PAD - 4, colors="#666666", linestyles=":", linewidth=1.1, zorder=2)
-            labels.append((s["price"], f"{'SH' if kind == 'H' else 'SL'} {s['price']:.2f}", "#444444", False))
+        for s in keep[-2:]:                            # "Sw" = swing (supaya tidak tertukar dengan SL = stop loss)
+            cand.append((s["price"], f"{'SwH' if kind == 'H' else 'SwL'} {s['price']:.2f}", "#444444", 2, max(0, s["i"] - start), ":"))
     # ---- level kunci (kemarin, sesi, swing HTF, angka bulat)
-    drawn = {round(p, 2) for p, _, _, _ in labels}
     for lv in levels:
         p = lv["price"]
-        if not (ymin <= p <= ymax) or round(p, 2) in drawn or lv["name"].startswith(tf + " S") \
+        if not (ymin <= p <= ymax) or lv["name"].startswith(tf + " S") \
                 or lv["group"] not in LEVEL_GROUPS[tf] or (tf == "H4" and lv["name"].startswith("H1 ")):
             continue
-        col = GROUP_COLOR.get(lv["group"], "#777777")
-        ax.hlines(p, 0, show - 1 + RIGHT_PAD - 4, colors=col, linestyles="--", linewidth=1.2, zorder=2)
-        labels.append((p, f"{lv['name']} {p:.2f}", col, False))
-        drawn.add(round(p, 2))
+        cand.append((p, f"{lv['name']} {p:.2f}", GROUP_COLOR.get(lv["group"], "#777777"), LEVEL_PRIO.get(lv["group"], 2), 0, "--"))
+    labels, kept = [], []
+    line_end = show - 0.3                              # garis berhenti di candle terakhir, tidak menembus teks label
+    for p, text, col, _, x0, ls in sorted(cand, key=lambda c: c[3]):
+        if any(abs(p - q) < rng * 0.012 for q in kept):   # dua level hampir sama: pakai yang prioritasnya lebih tinggi
+            continue
+        kept.append(p)
+        ax.hlines(p, x0, line_end, colors="#666666" if ls == ":" else col, linestyles=ls, linewidth=1.1 if ls == ":" else 1.2, zorder=2)
+        labels.append((p, text, col, False))
     labels.append((last_price, f" {last_price:.2f} ", "white", True))
     ax.axhline(last_price, color="black", linewidth=1.0, linestyle="-", alpha=0.85, zorder=6)
     xl = show - 0.2 + 0.4
@@ -102,7 +107,8 @@ def _panel(ax, tf, df, levels, last_price):
             ax.text(xl, yl, text, fontsize=9.5, color="white", va="center", ha="left", zorder=9, fontweight="bold",
                     bbox=dict(facecolor="black", edgecolor="black", boxstyle="square,pad=0.2"))
         else:
-            ax.text(xl, yl, text, fontsize=8.2, color=color, va="center", ha="left", zorder=8, fontweight="bold")
+            ax.text(xl, yl, text, fontsize=8.6, color=color, va="center", ha="left", zorder=8, fontweight="bold",
+                    bbox=dict(facecolor="white", edgecolor="none", pad=0.8, alpha=0.9))
     # ---- sumbu waktu (WIB) dan pemisah hari
     ts = v.ts.values
     days = [_wib(t, "%d %b") for t in ts]
@@ -110,8 +116,9 @@ def _panel(ax, tf, df, levels, last_price):
         if days[i] != days[i - 1]:
             ax.axvline(i - 0.5, color="#bdbdbd", linewidth=0.9, linestyle="-.", zorder=1)
             ax.text(i - 0.4, ymax - rng * 0.012, days[i], fontsize=8, color="#757575", va="top", ha="left")
-    step = max(1, show // 8)
-    ticks = list(range(0, show, step))
+    ticks = [i for i, t in enumerate(ts) if int(_wib(t, "%H")) in TICK_HOURS[tf] and _wib(t, "%M") == "00"]
+    if len(ticks) < 3:                                 # cadangan bila data tidak rata (mis. akhir pekan)
+        ticks = list(range(0, show, max(1, show // 8)))
     ax.set_xticks(ticks)
     ax.set_xticklabels([_wib(ts[i], "%d/%m\n%H:%M") for i in ticks], fontsize=8.5)
     ax.set_xlim(-1, show + RIGHT_PAD)
@@ -123,7 +130,7 @@ def _panel(ax, tf, df, levels, last_price):
         ax.spines[sp].set_visible(False)
     handles += [Line2D([0], [0], marker="v", color="w", markerfacecolor=DOWN, markersize=8, label="swing high"),
                 Line2D([0], [0], marker="^", color="w", markerfacecolor=UP, markersize=8, label="swing low")]
-    ax.legend(handles=handles, loc="upper left", fontsize=8.5, ncol=4, frameon=True, framealpha=0.9)
+    ax.legend(handles=handles, loc="lower right", bbox_to_anchor=(1.0, 1.01), fontsize=8.5, ncol=4, frameon=False)
     ax.set_title(f"{SYMBOL} · {tf} · {show} candle · candle tertutup terakhir {_wib(ts[-1] + TF[tf]['sec'], '%d %b %H:%M')} WIB",
                  fontsize=12.5, fontweight="bold", loc="left")
 

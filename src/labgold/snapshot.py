@@ -65,7 +65,7 @@ def compute_levels(frames, now_ts):
     for tf in ("H4", "H1"):
         df = frames[tf].tail(300).reset_index(drop=True)
         sw = swings(df, TF[tf]["swing_n"])
-        for kind, tag in (("H", "SH"), ("L", "SL")):
+        for kind, tag in (("H", "SwH"), ("L", "SwL")):
             pts = [s for s in sw if s["kind"] == kind][-2:]
             for k, s in enumerate(reversed(pts), 1):
                 out.append({"name": f"{tf} {tag}{k}", "price": s["price"], "group": "swing"})
