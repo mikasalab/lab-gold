@@ -7,7 +7,7 @@ Format mengikuti [Keep a Changelog](https://keepachangelog.com/id/1.1.0/). Versi
 ### Diubah
 - Chart: label swing diganti `SwH`/`SwL` (sebelumnya `SH`/`SL`, mudah tertukar dengan stop loss); garis level berhenti di candle terakhir
   sehingga tidak menembus teks label; label diberi latar putih; level yang berdekatan digabung (prioritas: kemarin/sesi, swing HTF, swing panel, angka bulat);
-  sumbu waktu memakai jam bulat WIB (M15 tiap 3 jam, H1 tiap 6 jam, H4 jam 07:00); legenda dipindah ke luar area plot; font harga swing diperbesar.
+  sumbu waktu memakai jam bulat WIB (M15 tiap 3 jam, H1 tiap 6 jam, H4 jam 07:00); legenda dipindah ke luar area plot; font harga swing diperbesar; label tanggal pindah ke bawah bila bertabrakan dengan harga swing high.
 - Prompt AI: menjelaskan arti label `SwH/SwL`, `PDH/PDL`, `Asia/London H/L`.
 - Workflow: `actions/checkout@v6` dan `actions/setup-python@v6` (Node 24; menghilangkan peringatan deprecation Node 20).
 - Jadwal cron-job.org: tiap 5 menit, crontab UTC `1-59/5 12-20 * * 1-5`.
